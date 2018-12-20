@@ -1,0 +1,152 @@
+<html>
+  <head>
+    <title>Cultural Collision</title>
+    <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
+    <script src="d3.v3.js"></script>
+    <script src="topojson.js"></script>
+    <script src="datamaps.js"></script>
+    <script src="countries.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <style>
+
+body {
+  margin: 0;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+#wrap {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+#map {
+  width: 1500px;
+  height: 700px;
+  position: relative;
+}
+
+#input {
+  width: 100%;
+  height: 200px;
+  padding: 50px 80px;
+  box-sizing: border-box;
+}
+
+#input input {
+  font-family: 'Lato', sans-serif;
+  background: white;
+  font-size: 25px;
+  padding: 20px 35px;
+  border: 1px solid lightgrey;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  width: 100%;
+  transition: box-shadow 0.3s;
+}
+
+#input input::placeholder {
+  color: rgba(0, 0, 0, 0.2);
+}
+
+#input input:hover, #input input:focus {
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+  outline: none;
+}
+
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <div id="input">
+        <input id="actual-input" type="text" placeholder="Type a controversial term (then press enter)" />
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <script>
+"use strict";
+
+var map = new Datamap({
+  element: document.getElementById('map'),
+  fills: {
+    defaultFill: 'grey',
+  },
+  geographyConfig: {
+    highlightOnHover: false,
+  },
+});
+
+function hitCount(query, callback) {
+  // Number of google hits for a given query
+  $.ajax({
+    url: "http://localhost:5000/wfrWHvc5GatzGTP3yuLu?q=" + encodeURI(query),
+    success: response => {
+      if (response["type"] !== "error") {
+        callback(response["hits"]);
+      } else {
+        console.log("Error on query:", query)
+      }
+    },
+    error: () => console.log("Error on query:", query),
+  });
+}
+
+function sigmoid(x) {
+  return 1 / (1 + Math.pow(Math.E, -x));
+}
+
+function getScore(country, term, callback) {
+  // Naiveley score the correlation between a country and a term in [-1, 1]
+  (function() {
+    // Janky way of doing this because we want to fire the good request at the same time
+    // as the bad request. This way, both will be gotten with minimal delay and will
+    // thus be rendered as fast as possible
+    var goodCount, badCount;
+    hitCount(`${country} "${term}" "good"`, goodCount => goodCount = goodCount);
+    hitCount(`${country} "${term}" "bad"`, badCount => badCount = badCount);
+
+    function poll() {
+      if (typeof goodCount !== 'undefined' && typeof badCount !== 'undefined') {
+        let val = 2 * sigmoid(goodCount / badCount - 1) - 0.5
+        callback(val)
+      }
+      setTimeout(poll, 500);
+    }
+    poll();
+  })();
+}
+
+function displayTerm(term) {
+  for (let i = 0; i < countries.length; i++) {
+    let country = countries[i];
+    getScore(country, term, score => {
+      console.log("Got score", score, "for country", country, "on term", term);
+      const K = 200; // Comparable to saturation
+      var r, g, b;
+      if (score < 0) {
+        r = K;
+        g = Math.floor(-K * score);
+        b = Math.floor(-K * score);
+      } else {
+        r = K - Math.floor(K * score);
+        g = K;
+        b = K - Math.floor(K * score);
+      }
+
+      var colorDict = {};
+      colorDict[countryCodes[country]] = `rgb(${r}, ${g}, ${b})`;
+      map.updateChoropleth(colorDict);
+    });
+  }
+}
+
+document.getElementById("actual-input").addEventListener("keydown", ev => {
+  if (ev.keyCode == 13) { // Enter key
+    displayTerm(document.getElementById("actual-input").value);
+  }
+});
+
+    </script>
+  </body>
+</html>
