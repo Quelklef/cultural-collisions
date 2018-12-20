@@ -80,10 +80,11 @@ var map = new Datamap({
 function hitCount(query, callback) {
   // Number of google hits for a given query
   $.ajax({
-    url: "http://localhost:5000/wfrWHvc5GatzGTP3yuLu?q=" + encodeURI(query),
+    url: "http://dranya.me/wfrWHvc5GatzGTP3yuLu?q=" + encodeURI(query),
     success: response => {
-      if (response["type"] !== "error") {
-        callback(response["hits"]);
+      if (response.type !== "error") {
+        console.log(response);
+        callback(response.hitcount);
       } else {
         console.log("Error on query:", query)
       }
@@ -103,10 +104,11 @@ function getScore(country, term, callback) {
     // as the bad request. This way, both will be gotten with minimal delay and will
     // thus be rendered as fast as possible
     var goodCount, badCount;
-    hitCount(`${country} "${term}" "good"`, goodCount => goodCount = goodCount);
-    hitCount(`${country} "${term}" "bad"`, badCount => badCount = badCount);
+    hitCount(`${country} "${term}" "good"`, v => goodCount = v);
+    hitCount(`${country} "${term}" "bad"`, v => badCount = v);
 
     function poll() {
+      console.log(goodCount, badCount);
       if (typeof goodCount !== 'undefined' && typeof badCount !== 'undefined') {
         let val = 2 * sigmoid(goodCount / badCount - 1) - 0.5
         callback(val)
