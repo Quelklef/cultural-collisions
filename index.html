@@ -77,12 +77,17 @@ var map = new Datamap({
   },
 });
 
+var runningAjaxRequests = [];
 function hitCount(query, callback) {
   // Number of google hits for a given query
-  $.ajax({
+  let idx = runningAjaxRequests.length; // index of request after adding it to list
+  var req = $.ajax({
     url: "http://dranya.me/wfrWHvc5GatzGTP3yuLu?q=" + encodeURI(query),
     success: response => {
       if (response.type !== "error") {
+        // Remove self from list
+        runningAjaxRequests.splice(idx, 1);
+
         callback(response.hitcount);
       } else {
         console.log("Error on query:", query);
@@ -92,6 +97,7 @@ function hitCount(query, callback) {
     },
     error: () => console.log("Error on query:", query),
   });
+  runningAjaxRequests.push(req);
 }
 
 function sigmoid(x) {
@@ -104,7 +110,8 @@ function getScore(country, term, callback) {
     var ajaxCallback;
     ajaxCallback = function(args) {
       if (args.good && args.bad) {
-        let val = 2 * sigmoid(args.good / args.bad - 1) - 0.5;
+        let val = 2 * sigmoid(args.good / args.bad - 1) - 1;
+        console.log(val);
         callback(val);
       } else {
         let me = ajaxCallback;
@@ -118,7 +125,15 @@ function getScore(country, term, callback) {
 }
 
 function displayTerm(term) {
-  // First reset the colors
+  // First stop current requests
+  runningAjaxRequests.forEach(req => req.abort());
+  console.log(runningAjaxRequests)
+  runningAjaxRequests = [];
+
+  // Wait a little bit to let running callbacks finish
+  setTimeout(function() {
+
+  // Then reset the colors
   map.updateChoropleth(null, {reset: true});
 
   for (let i = 0; i < countries.length; i++) {
@@ -141,6 +156,8 @@ function displayTerm(term) {
       map.updateChoropleth(colorDict);
     });
   }
+
+  }, 500);
 }
 
 document.getElementById("actual-input").addEventListener("keydown", ev => {
