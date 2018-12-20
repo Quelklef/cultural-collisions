@@ -33,10 +33,10 @@ def hits(query):
   res = re.search(reg, text)
   if res is None:
     return
-  return int(''.join(filter(lambda c: c in '1234567890', res.groups(1))))
+  return int(''.join(filter(lambda c: c in '1234567890', res.groups(1)[0])))
 
 def search(query):
-  response = req_sess.get("http://bing.com/search?q=" + query)
+  response = req_sess.get("https://www.bing.com/search?q=" + query)
   if not hasattr(response, 'text'):
     return
   return response.text
