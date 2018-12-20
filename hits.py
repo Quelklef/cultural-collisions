@@ -1,4 +1,3 @@
-import time
 import re
 import flask
 import flask_cors
@@ -15,7 +14,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 @app.route('/wfrWHvc5GatzGTP3yuLu')
 @flask_cors.cross_origin()
 def wfrWHvc5GatzGTP3yuLu():
-  """ Return number of hits on google for given query """
+  """ Return number of hits online for given query """
   q = flask.request.args.get('q')
   errdict = {"type": "error"}
   if q is None:
@@ -27,27 +26,17 @@ def wfrWHvc5GatzGTP3yuLu():
     return flask.jsonify({"type": "success", "hitcount": hitcount})
 
 def hits(query):
-  text = google(query)
+  text = search(query)
   if not text:
     return
-  reg = "About (?P<hits>[0-9,]*) results"
+  reg = ">([0-9,]*) results<"
   res = re.search(reg, text)
   if res is None:
     return
-  return int(''.join(filter(lambda c: c in '1234567890', res['hits'])))
+  return int(''.join(filter(lambda c: c in '1234567890', res.groups(1))))
 
-search_lock = threading.Lock()
-last_search_time = 0
-wait_time = 2.5  # wait time [s] between google requests
-def google(query):
-  global last_search_time
-
-  search_lock.acquire()
-  time.sleep(max(0, wait_time - (time.time() - last_search_time)))
-  response = req_sess.get("http://google.com/search?q=" + query)
-  last_search_time = time.time()
-  search_lock.release()
-
+def search(query):
+  response = req_sess.get("http://bing.com/search?q=" + query)
   if not hasattr(response, 'text'):
     return
   return response.text

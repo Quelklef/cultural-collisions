@@ -83,10 +83,11 @@ function hitCount(query, callback) {
     url: "http://dranya.me/wfrWHvc5GatzGTP3yuLu?q=" + encodeURI(query),
     success: response => {
       if (response.type !== "error") {
-        console.log(response);
         callback(response.hitcount);
       } else {
-        console.log("Error on query:", query)
+        console.log("Error on query:", query);
+        // Try again
+        hitCount(query, callback);
       }
     },
     error: () => console.log("Error on query:", query),
@@ -100,30 +101,29 @@ function sigmoid(x) {
 function getScore(country, term, callback) {
   // Naiveley score the correlation between a country and a term in [-1, 1]
   (function() {
-    // Janky way of doing this because we want to fire the good request at the same time
-    // as the bad request. This way, both will be gotten with minimal delay and will
-    // thus be rendered as fast as possible
-    var goodCount, badCount;
-    hitCount(`${country} "${term}" "good"`, v => goodCount = v);
-    hitCount(`${country} "${term}" "bad"`, v => badCount = v);
-
-    function poll() {
-      console.log(goodCount, badCount);
-      if (typeof goodCount !== 'undefined' && typeof badCount !== 'undefined') {
-        let val = 2 * sigmoid(goodCount / badCount - 1) - 0.5
-        callback(val)
+    var ajaxCallback;
+    ajaxCallback = function(args) {
+      if (args.good && args.bad) {
+        let val = 2 * sigmoid(args.good / args.bad - 1) - 0.5;
+        callback(val);
+      } else {
+        let me = ajaxCallback;
+        ajaxCallback = args_ => me(Object.assign({}, args, args_));
       }
-      setTimeout(poll, 500);
     }
-    poll();
+
+    hitCount(`${country} "${term}" "good"`, goodCount => ajaxCallback({good: goodCount}));
+    hitCount(`${country} "${term}" "bad"`, badCount => ajaxCallback({bad: badCount}));
   })();
 }
 
 function displayTerm(term) {
+  // First reset the colors
+  map.updateChoropleth(null, {reset: true});
+
   for (let i = 0; i < countries.length; i++) {
     let country = countries[i];
     getScore(country, term, score => {
-      console.log("Got score", score, "for country", country, "on term", term);
       const K = 200; // Comparable to saturation
       var r, g, b;
       if (score < 0) {
